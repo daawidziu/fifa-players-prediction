@@ -1,0 +1,82 @@
+from typing import List
+import requests
+from bs4 import BeautifulSoup
+
+
+def load_soup(data_url: str) -> BeautifulSoup:
+    """
+    Utility function to request and parse player's website.
+
+    Parameters:
+        data_url (str): unique data url to identify player
+
+    Returns:
+        soup (BeautifulSoup): BeautifulSoup object parsed by html.parser
+    """
+
+    url = 'https://www.futbin.com{}'.format(data_url)
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    return soup
+
+
+def get_price(data_url: str) -> dict:
+    """
+    Make request to futbin api to get player's price.
+
+    Parameters:
+        data_url (str): unique data url to identify player
+
+    Returns:
+        dict: dictionary with player's price
+    """
+
+    soup = load_soup(data_url)
+    data_player_resource = soup.find(id='page-info').get('data-player-resource')
+    url = 'https://www.futbin.com/21/playerGraph?type=daily_graph&year=21&player={}'.format(data_player_resource)
+    r = requests.get(url)
+    return r.json()
+
+
+def get_stats(data_url: str) -> dict:
+    """
+    Scrape player's rating and in-game statistics.
+
+    Parameters:
+        data_url (str): unique data url to identify player
+
+    Returns:
+        dict: dictionary with player rating and statistic
+    """
+
+    soup = load_soup(data_url)
+    attributes = soup.find_all('span', {'class': 'ig-stat-name-tooltip'})
+    values = soup.find_all('div', {'class': 'stat_val'})
+    rating = soup.find('div', {'class': 'pcdisplay-rat'}).get_text()
+    stats = {k.get_text(): v.get_text() for k in attributes for v in values}
+    stats['rating'] = rating
+    return stats
+
+
+def get_links(pages: int) -> List:
+    """
+    Paginate trough futbin.com to scrape links to player's pages. Search has been limited to only gold players.
+
+    Parameters:
+        pages (int): number of pages to scrape
+
+    Returns:
+        links: list of found links
+    """
+
+    links = []
+    for i in range(1, pages + 1):
+        try:
+            r = requests.get('https://www.futbin.com/21/players?page={}&version=gold'.format(i))
+            soup = BeautifulSoup(r.text, 'html.parser')
+            for link in soup.find_all('a', {'class': 'player_name_players_table'}):
+                links.append(link.get('href'))
+        except requests.exceptions.HTTPError:
+            print('Only {} pages were found'.format(i))
+            break
+    return links
