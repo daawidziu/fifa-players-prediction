@@ -40,7 +40,7 @@ def get_price(data_url: str) -> dict:
 
 def get_stats(data_url: str) -> dict:
     """
-    Scrape player's rating and in-game statistics.
+    Scrape player's rating and in-game statistics and personal information.
 
     Parameters:
         data_url (str): unique data url to identify player
@@ -50,12 +50,15 @@ def get_stats(data_url: str) -> dict:
     """
 
     soup = load_soup(data_url)
-    attributes = soup.find_all('span', {'class': 'ig-stat-name-tooltip'})
-    values = soup.find_all('div', {'class': 'stat_val'})
-    rating = soup.find('div', {'class': 'pcdisplay-rat'}).get_text()
-    stats = {k.get_text(): v.get_text() for k in attributes for v in values}
-    stats['rating'] = rating
-    return stats
+    game_attributes = soup.find_all('span', class_='ig-stat-name-tooltip')
+    game_values = soup.find_all('div', class_='stat_val', style=False)
+    personal_values = soup.find_all('td', class_='table-row-text', limit=9)
+    personal_attributes = soup.find_all('th', limit=9)
+    rating = soup.find('div', class_='pcdisplay-rat').get_text()
+    game = {k.get_text(): v.get_text() for k, v in zip(game_attributes, game_values)}
+    personal = {k.get_text(): v.get_text() for k, v in zip(personal_attributes, personal_values)}
+    statistic = {**game, **personal, 'rating': rating}
+    return statistic
 
 
 def get_links(pages: int) -> List:
